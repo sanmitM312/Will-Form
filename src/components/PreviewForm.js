@@ -245,7 +245,7 @@ const PreviewForm = ({ formData, nextStep, prevStep, updateFormData }) => {
             {/* Navigation Buttons */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
                 <Button variant="contained" color="primary" onClick={prevStep}>
-                    Previous
+                    Back
                 </Button>
                 <Button variant="contained" color="primary" onClick={handleSubmit}>
                     Next
