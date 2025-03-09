@@ -288,7 +288,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                                       )
                                                       .map((nominee) => (
                                                         <MenuItem key={nominee.id} value={nominee.id}>
-                                                          {nominee.name} {(nominee.id)}
+                                                          {nominee.name}
                                                         </MenuItem>
                                                       ))
                                                     }
