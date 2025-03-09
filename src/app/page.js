@@ -1,5 +1,3 @@
-'use client'; // Important for client-side components in Next.js App Router
-
 import { Typography, Container, Box } from '@mui/material';
 import Card from '../components/Card';
 
