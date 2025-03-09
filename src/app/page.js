@@ -1,15 +1,19 @@
 import { Typography, Container, Box } from '@mui/material';
 import Card from '../components/Card';
+import NavBar from '@/components/NavBar';
 
 export default function Home() {
   return (
-    <Container maxWidth="md">
+    
+    <>
+      <NavBar title="Will Creation" />
+      
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: 'top',
+          justifyContent: 'top',
           minHeight: '100vh',
           py: 4,
         }}
@@ -19,12 +23,14 @@ export default function Home() {
         </Typography>
         
         <Card 
-          title="Start Your Application" 
-          description="Begin your application process by filling out our easy multi-step form."
+          title="Will Creator" 
+          description="Ensure your family members are taken care of by creating your will."
           linkHref="/form"
-          linkText="Get Started"
+          linkText="Let's Get Started"
+          sx={{ borderRadius: '16px' }} // Added inline style for rounded corners
         />
       </Box>
-    </Container>
+    </>
   );
 }
+

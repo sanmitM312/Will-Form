@@ -12,7 +12,7 @@ const NavBar = ({ title = "Our Service" }) => {
   };
 
   return (
-    <AppBar position="static" color="primary" elevation={2}>
+    <AppBar position="static" color="#FFFFFF" elevation={2} sx={{ width: '100%' }}>
       <Toolbar>
         {pathname !== '/' && (
           <Button 
@@ -21,15 +21,11 @@ const NavBar = ({ title = "Our Service" }) => {
             startIcon={<ArrowBackIcon />}
             sx={{ mr: 2 }}
           >
-            Back
           </Button>
         )}
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
-        <Box>
-          {/* You can add additional navigation items here */}
-        </Box>
       </Toolbar>
     </AppBar>
   );

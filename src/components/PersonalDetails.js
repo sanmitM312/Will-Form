@@ -25,18 +25,30 @@ import {
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { Divide } from 'lucide-react';
+import { differenceInYears, isAfter, isFuture, isPast } from 'date-fns';
 
-// Validation schema for personal details
+// Validation schema for personal details with enhanced validations
 const PersonalDetailsSchema = Yup.object().shape({
   title: Yup.string().required('Title is required'),
   name: Yup.string().required('Name is required'),
-  dateOfBirth: Yup.date().required('Date of birth is required'),
+  dateOfBirth: Yup.date()
+    .required('Date of birth is required')
+    .test('is-past', 'Date of birth cannot be in the future', function(value) {
+      return value ? !isFuture(new Date(value)) : true;
+    }),
   gender: Yup.string().required('Gender is required'),
   maritalStatus: Yup.string().required('Marital status is required'),
-  marriageDate: Yup.date().when('maritalStatus', {
-    is: 'Married',
-    then: Yup.date().required('Marriage date is required'),
+  marriageDate: Yup.date().when(['maritalStatus', 'dateOfBirth'], {
+    is: (maritalStatus, dateOfBirth) => maritalStatus === 'Married' && dateOfBirth,
+    then: (schema) => schema
+      .required('Marriage date is required')
+      .test('is-after-birth', 'Marriage date must be after date of birth', function(value, context) {
+        const { dateOfBirth } = context.parent;
+        return value && dateOfBirth ? isAfter(new Date(value), new Date(dateOfBirth)) : true;
+      })
+      .test('is-past', 'Marriage date cannot be in the future', function(value) {
+        return value ? !isFuture(new Date(value)) : true;
+      }),
     otherwise: Yup.date().nullable(),
   }),
   religion: Yup.string().required('Religion is required'),
@@ -45,7 +57,22 @@ const PersonalDetailsSchema = Yup.object().shape({
   residentialStatus: Yup.string().required('Residential status is required'),
   address: Yup.string().required('Address is required'),
   identificationDocument: Yup.string().required('Identification document is required'),
-  identificationNumber: Yup.string().required('Identification number is required'),
+  identificationNumber: Yup.string()
+    .required('Identification number is required')
+    .when('identificationDocument', {
+      is: 'PAN',
+      then: (schema) => schema
+        .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format. Should be like ABCDE1234F')
+        .required('PAN number is required'),
+      otherwise: (schema) => schema,
+    })
+    .when('identificationDocument', {
+      is: 'AADHAAR',
+      then: (schema) => schema
+        .matches(/^[0-9]{12}$/, 'Invalid Aadhaar number. Should be 12 digits')
+        .required('Aadhaar number is required'),
+      otherwise: (schema) => schema,
+    }),
 });
 
 const titleOptions = ['Mr.', 'Mrs.', 'Ms.', 'Dr.'];
@@ -60,17 +87,35 @@ const PersonalDetails = ({ formData, nextStep, updateFormData }) => {
     updateFormData('personalDetails', values);
     nextStep();
   };
+  
+  // Function to calculate age from date of birth
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return null;
+    return differenceInYears(new Date(), new Date(dateOfBirth));
+  };
+
+  // Helper function to get placeholder text based on document type
+  const getIdentificationPlaceholder = (docType) => {
+    switch(docType) {
+      case 'AADHAAR':
+        return 'Enter 12 digit Aadhaar Number';
+      case 'PAN':
+        return 'Enter PAN in format ABCDE1234F';
+      default:
+        return 'Enter Your ID Number';
+    }
+  };
 
   return (
     <Paper elevation={3} sx={{ p: 4, mt: 2 }}>
       <Typography variant="h5" gutterBottom>
         Personal Details
       </Typography>
-      <Typography variant="subtitle2" color="text.secondary" mb={3}>
+      <Typography variant="subtitle2" mb={3}>
         Step 1 of 7: Fill up Personal Details
       </Typography>            
       <Box sx={{ width: '100%', mb: 4 }}>
-          <Stepper activeStep={0}>
+          <Stepper activeStep={0} sx={{ '& .MuiStepIcon-root.Mui-active': { color: 'warning.main' }, '& .MuiStepIcon-root.Mui-completed': { color: 'warning.main' } }}>
               {Array.from({ length: 4 }, (_, i) => (
                   <Step key={`step-${i}`}>
                       <StepLabel></StepLabel>
@@ -102,304 +147,341 @@ const PersonalDetails = ({ formData, nextStep, updateFormData }) => {
         validationSchema={PersonalDetailsSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, errors, touched, handleChange, handleBlur, setFieldValue }) => (
-          <Form>
-            <Grid container spacing={3}>
-              {/* Title */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={touched.title && Boolean(errors.title)}>
-                  <InputLabel id="title-label">Title*</InputLabel>
-                  <Select
-                    labelId="title-label"
-                    id="title"
-                    name="title"
-                    value={values.title}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    label="Title*"
-                  >
-                    {titleOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.title && errors.title && (
-                    <FormHelperText>{errors.title}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-
-              {/* Name */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  id="name"
-                  name="name"
-                  label="Name*"
-                  value={values.name}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={touched.name && Boolean(errors.name)}
-                  helperText={touched.name && errors.name ? errors.name : "Enter valid name"}
-                  placeholder="Enter Your Full Name"
-                />
-              </Grid>
-
-              {/* Date of Birth */}
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="Date of Birth*"
-                    inputFormat="DD-MM-YYYY"
-                    value={values.dateOfBirth}
-                    onChange={(date) => setFieldValue('dateOfBirth', date)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        name="dateOfBirth"
-                        error={touched.dateOfBirth && Boolean(errors.dateOfBirth)}
-                        helperText={touched.dateOfBirth && errors.dateOfBirth ? errors.dateOfBirth : "Enter date of birth"}
-                      />
+        {({ values, errors, touched, handleChange, handleBlur, setFieldValue }) => {
+          const age = calculateAge(values.dateOfBirth);
+          const idPlaceholder = getIdentificationPlaceholder(values.identificationDocument);
+          
+          return (
+            <Form>
+              <Grid container spacing={3}>
+                {/* Title */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={touched.title && Boolean(errors.title)}>
+                    <InputLabel id="title-label">Title*</InputLabel>
+                    <Select
+                      labelId="title-label"
+                      id="title"
+                      name="title"
+                      value={values.title}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      label="Title*"
+                    >
+                      {titleOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {touched.title && errors.title && (
+                      <FormHelperText>{errors.title}</FormHelperText>
                     )}
-                  />
-                </LocalizationProvider>
-              </Grid>
+                  </FormControl>
+                </Grid>
 
-              {/* Gender */}
-              <Grid item xs={12} sm={6}>
-                <FormControl component="fieldset" error={touched.gender && Boolean(errors.gender)}>
-                  <FormLabel component="legend">Gender*</FormLabel>
-                  <RadioGroup
-                    row
-                    name="gender"
-                    value={values.gender}
-                    onChange={handleChange}
-                  >
-                    <FormControlLabel value="Male" control={<Radio />} label="Male" />
-                    <FormControlLabel value="Female" control={<Radio />} label="Female" />
-                    <FormControlLabel value="Others" control={<Radio />} label="Others" />
-                  </RadioGroup>
-                  {touched.gender && errors.gender && (
-                    <FormHelperText>{errors.gender}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-
-              {/* Marital Status */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={touched.maritalStatus && Boolean(errors.maritalStatus)}>
-                  <InputLabel id="marital-status-label">Marital Status*</InputLabel>
-                  <Select
-                    labelId="marital-status-label"
-                    id="maritalStatus"
-                    name="maritalStatus"
-                    value={values.maritalStatus}
+                {/* Name */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="name"
+                    name="name"
+                    label="Name*"
+                    value={values.name}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    label="Marital Status*"
-                  >
-                    {maritalStatusOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.maritalStatus && errors.maritalStatus && (
-                    <FormHelperText>{errors.maritalStatus}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
+                    error={touched.name && Boolean(errors.name)}
+                    helperText={touched.name && errors.name ? errors.name : "Enter valid name"}
+                    placeholder="Enter Your Full Name"
+                  />
+                </Grid>
 
-              {/* Marriage Date (conditional) */}
-              {values.maritalStatus === 'Married' && (
+                {/* Date of Birth */}
                 <Grid item xs={12} sm={6}>
                   <LocalizationProvider dateAdapter={AdapterDateFns}>
                     <DatePicker
-                      label="Marriage Date*"
+                      label="Date of Birth*"
                       inputFormat="DD-MM-YYYY"
-                      value={values.marriageDate}
-                      onChange={(date) => setFieldValue('marriageDate', date)}
+                      value={values.dateOfBirth}
+                      onChange={(date) => setFieldValue('dateOfBirth', date)}
+                      onBlur={handleBlur}
+                      maxDate={new Date()} 
                       renderInput={(params) => (
                         <TextField
                           {...params}
                           fullWidth
-                          name="marriageDate"
-                          error={touched.marriageDate && Boolean(errors.marriageDate)}
-                          helperText={touched.marriageDate && errors.marriageDate ? errors.marriageDate : "Select date of marriage"}
+                          name="dateOfBirth"
+                          error={touched.dateOfBirth && Boolean(errors.dateOfBirth)}
+                          helperText={touched.dateOfBirth && errors.dateOfBirth ? errors.dateOfBirth : "Enter date of birth (past dates only)"}
                         />
                       )}
                     />
                   </LocalizationProvider>
                 </Grid>
-              )}
+                                              
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Age"
+                    value={age !== null ? `${age} years` : ""}
+                    InputProps={{
+                      readOnly: true,
+                      style: { backgroundColor: '#f5f5f5' }
+                    }}
+                    variant="outlined"
+                    helperText="Automatically calculated from Date of Birth"
+                  />
+                </Grid>
 
-              {/* Religion */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={touched.religion && Boolean(errors.religion)}>
-                  <InputLabel id="religion-label">Religion*</InputLabel>
-                  <Select
-                    labelId="religion-label"
-                    id="religion"
-                    name="religion"
-                    value={values.religion}
+                {/* Gender */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl component="fieldset" error={touched.gender && Boolean(errors.gender)}>
+                    <FormLabel component="legend">Gender*</FormLabel>
+                    <RadioGroup
+                      row
+                      name="gender"
+                      value={values.gender}
+                      onChange={handleChange}
+                    >
+                      <FormControlLabel value="Male" control={<Radio />} label="Male" />
+                      <FormControlLabel value="Female" control={<Radio />} label="Female" />
+                      <FormControlLabel value="Others" control={<Radio />} label="Others" />
+                    </RadioGroup>
+                    {touched.gender && errors.gender && (
+                      <FormHelperText>{errors.gender}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+
+                {/* Marital Status */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={touched.maritalStatus && Boolean(errors.maritalStatus)}>
+                    <InputLabel id="marital-status-label">Marital Status*</InputLabel>
+                    <Select
+                      labelId="marital-status-label"
+                      id="maritalStatus"
+                      name="maritalStatus"
+                      value={values.maritalStatus}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      label="Marital Status*"
+                    >
+                      {maritalStatusOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {touched.maritalStatus && errors.maritalStatus && (
+                      <FormHelperText>{errors.maritalStatus}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+
+                {/* Marriage Date (conditional) */}
+                {values.maritalStatus === 'Married' && (
+                  <Grid item xs={12} sm={6}>
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        label="Marriage Date*"
+                        inputFormat="DD-MM-YYYY"
+                        value={values.marriageDate}
+                        onChange={(date) => setFieldValue('marriageDate', date)}
+                        minDate={values.dateOfBirth} // Must be after birth date
+                        maxDate={new Date()} // Restrict to past dates only
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            fullWidth
+                            name="marriageDate"
+                            error={touched.marriageDate && Boolean(errors.marriageDate)}
+                            helperText={touched.marriageDate && errors.marriageDate ? errors.marriageDate : "Select date of marriage (after birth date, before today)"}
+                          />
+                        )}
+                      />
+                    </LocalizationProvider>
+                  </Grid>
+                )}
+
+                {/* Religion */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={touched.religion && Boolean(errors.religion)}>
+                    <InputLabel id="religion-label">Religion*</InputLabel>
+                    <Select
+                      labelId="religion-label"
+                      id="religion"
+                      name="religion"
+                      value={values.religion}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      label="Religion*"
+                    >
+                      {religionOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {touched.religion && errors.religion && (
+                      <FormHelperText>Please select a religion</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+
+                {/* Nationality */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl component="fieldset" error={touched.nationality && Boolean(errors.nationality)}>
+                    <FormLabel component="legend">Nationality*</FormLabel>
+                    <RadioGroup
+                      row
+                      name="nationality"
+                      value={values.nationality}
+                      onChange={handleChange}
+                    >
+                      <FormControlLabel value="Indian" control={<Radio />} label="Indian" />
+                      <FormControlLabel value="Foreign" control={<Radio />} label="Foreign" />
+                    </RadioGroup>
+                    {touched.nationality && errors.nationality && (
+                      <FormHelperText>{errors.nationality}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+
+                {/* Occupation */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={touched.occupation && Boolean(errors.occupation)}>
+                    <InputLabel id="occupation-label">Occupation*</InputLabel>
+                    <Select
+                      labelId="occupation-label"
+                      id="occupation"
+                      name="occupation"
+                      value={values.occupation}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      label="Occupation*"
+                    >
+                      {occupationOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {touched.occupation && errors.occupation && (
+                      <FormHelperText>{errors.occupation}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+
+                {/* Residential Status */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={touched.residentialStatus && Boolean(errors.residentialStatus)}>
+                    <InputLabel id="residential-status-label">Residential Status*</InputLabel>
+                    <Select
+                      labelId="residential-status-label"
+                      id="residentialStatus"
+                      name="residentialStatus"
+                      value={values.residentialStatus}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      label="Residential Status*"
+                    >
+                      {residentialStatusOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {touched.residentialStatus && errors.residentialStatus && (
+                      <FormHelperText>{errors.residentialStatus}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+
+                {/* Address */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    id="address"
+                    name="address"
+                    label="Address*"
+                    value={values.address}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    label="Religion*"
-                  >
-                    {religionOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.religion && errors.religion && (
-                    <FormHelperText>Please select a religion</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
+                    error={touched.address && Boolean(errors.address)}
+                    helperText={touched.address && errors.address ? errors.address : "Enter valid address"}
+                    placeholder="Enter Your Address"
+                    multiline
+                    rows={2}
+                  />
+                </Grid>
 
-              {/* Nationality */}
-              <Grid item xs={12} sm={6}>
-                <FormControl component="fieldset" error={touched.nationality && Boolean(errors.nationality)}>
-                  <FormLabel component="legend">Nationality*</FormLabel>
-                  <RadioGroup
-                    row
-                    name="nationality"
-                    value={values.nationality}
-                    onChange={handleChange}
-                  >
-                    <FormControlLabel value="Indian" control={<Radio />} label="Indian" />
-                    <FormControlLabel value="Foreign" control={<Radio />} label="Foreign" />
-                  </RadioGroup>
-                  {touched.nationality && errors.nationality && (
-                    <FormHelperText>{errors.nationality}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
+                {/* Identification Document */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={touched.identificationDocument && Boolean(errors.identificationDocument)}>
+                    <InputLabel id="identification-document-label">Identification Document*</InputLabel>
+                    <Select
+                      labelId="identification-document-label"
+                      id="identificationDocument"
+                      name="identificationDocument"
+                      value={values.identificationDocument}
+                      onChange={(e) => {
+                        // Reset identification number when document type changes
+                        setFieldValue('identificationNumber', '');
+                        handleChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      label="Identification Document*"
+                    >
+                      {identificationDocumentOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {touched.identificationDocument && errors.identificationDocument && (
+                      <FormHelperText>{errors.identificationDocument}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
 
-              {/* Occupation */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={touched.occupation && Boolean(errors.occupation)}>
-                  <InputLabel id="occupation-label">Occupation*</InputLabel>
-                  <Select
-                    labelId="occupation-label"
-                    id="occupation"
-                    name="occupation"
-                    value={values.occupation}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    label="Occupation*"
-                  >
-                    {occupationOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.occupation && errors.occupation && (
-                    <FormHelperText>{errors.occupation}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-
-              {/* Residential Status */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={touched.residentialStatus && Boolean(errors.residentialStatus)}>
-                  <InputLabel id="residential-status-label">Residential Status*</InputLabel>
-                  <Select
-                    labelId="residential-status-label"
-                    id="residentialStatus"
-                    name="residentialStatus"
-                    value={values.residentialStatus}
+                {/* Identification Number */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="identificationNumber"
+                    name="identificationNumber"
+                    label="Identification Number*"
+                    value={values.identificationNumber}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    label="Residential Status*"
-                  >
-                    {residentialStatusOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.residentialStatus && errors.residentialStatus && (
-                    <FormHelperText>{errors.residentialStatus}</FormHelperText>
-                  )}
-                </FormControl>
+                    error={touched.identificationNumber && Boolean(errors.identificationNumber)}
+                    helperText={touched.identificationNumber && errors.identificationNumber 
+                      ? errors.identificationNumber 
+                      : values.identificationDocument === 'PAN' 
+                        ? "Enter valid PAN (e.g., ABCDE1234F)"
+                        : values.identificationDocument === 'AADHAAR'
+                          ? "Enter valid 12-digit Aadhaar number"
+                          : "Enter valid ID number"}
+                    placeholder={idPlaceholder}
+                    inputProps={{
+                      maxLength: values.identificationDocument === 'AADHAAR' ? 12 : 
+                                values.identificationDocument === 'PAN' ? 10 : undefined
+                    }}
+                  />
+                </Grid>
               </Grid>
 
-              {/* Address */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  id="address"
-                  name="address"
-                  label="Address*"
-                  value={values.address}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={touched.address && Boolean(errors.address)}
-                  helperText={touched.address && errors.address ? errors.address : "Enter valid address"}
-                  placeholder="Enter Your Address"
-                  multiline
-                  rows={2}
-                />
-              </Grid>
-
-              {/* Identification Document */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={touched.identificationDocument && Boolean(errors.identificationDocument)}>
-                  <InputLabel id="identification-document-label">Identification Document*</InputLabel>
-                  <Select
-                    labelId="identification-document-label"
-                    id="identificationDocument"
-                    name="identificationDocument"
-                    value={values.identificationDocument}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    label="Identification Document*"
-                  >
-                    {identificationDocumentOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.identificationDocument && errors.identificationDocument && (
-                    <FormHelperText>{errors.identificationDocument}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-
-              {/* Identification Number */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  id="identificationNumber"
-                  name="identificationNumber"
-                  label="Identification Number*"
-                  value={values.identificationNumber}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={touched.identificationNumber && Boolean(errors.identificationNumber)}
-                  helperText={touched.identificationNumber && errors.identificationNumber ? errors.identificationNumber : "Enter valid ID number"}
-                  placeholder="Enter Your ID Number"
-                />
-              </Grid>
-            </Grid>
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                type="submit"
-              >
-                Next
-              </Button>
-            </Box>
-          </Form>
-        )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  color="warning"
+                  type="submit"
+                >
+                  Next
+                </Button>
+              </Box>
+            </Form>
+          );
+        }}
       </Formik>
     </Paper>
   );

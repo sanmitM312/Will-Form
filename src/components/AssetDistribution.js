@@ -32,6 +32,7 @@ const AssetDistributionSchema = Yup.object().shape({
   assetTypes: Yup.object().shape({
     deposits: Yup.array().of(
       Yup.object().shape({
+        name: Yup.string().required('Asset name is required'),
         allocations: Yup.array().of(
           Yup.object().shape({
             nomineeId: Yup.string().required('Nominee is required'),
@@ -42,7 +43,7 @@ const AssetDistributionSchema = Yup.object().shape({
           })
         ).test(
           'sum-equals-100',
-          'Total allocation must equal 100%',
+          'Total allocation must be less than or equal to 100%',
           function(allocations) {
             if (!allocations || allocations.length === 0) return true;
             const sum = allocations.reduce((sum, allocation) => sum + (parseFloat(allocation.share) || 0), 0);
@@ -172,6 +173,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
         {({ values, errors, touched, handleChange, handleBlur, setFieldValue, handleSubmit: formikSubmit }) => {
           const currentAssetType = assetTypes[activeTab];
           const currentAssetValues = values.assetTypes[currentAssetType.id] || [];
+
           
           return (
             <Form>
@@ -222,6 +224,8 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                     onChange={handleChange}
                                     onBlur={handleBlur}
                                     margin="normal"
+                                    error={touched.assetTypes?.[currentAssetType.id]?.[assetIndex]?.name && Boolean(errors.assetTypes?.[currentAssetType.id]?.[assetIndex]?.name)}
+                                    helperText={touched.assetTypes?.[currentAssetType.id]?.[assetIndex]?.name && errors.assetTypes?.[currentAssetType.id]?.[assetIndex]?.name}
                                   />
                                   
                                   <TextField
@@ -240,21 +244,13 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                   <Typography variant="subtitle2" mt={2} mb={1}>
                                     Nominee Allocations
                                   </Typography>
-                                  
-                                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                    <Typography variant="body2" mr={1}>
-                                      Total Allocation: {totalAllocation}%
-                                    </Typography>
-                                    {isAllocationComplete ? (
-                                      <Box sx={{ color: 'success.main', display: 'flex', alignItems: 'center' }}>
-                                        (Complete)
-                                      </Box>
-                                    ) : (
-                                      <Box sx={{ color: 'warning.main', display: 'flex', alignItems: 'center' }}>
-                                        (Remaining: {100 - totalAllocation}%)
-                                      </Box>
+                                  {errors.assetTypes?.[currentAssetType.id]?.[assetIndex]?.allocations && (
+                                          <FormHelperText error sx={{ mt: 1 }}>
+                                            {typeof errors.assetTypes[currentAssetType.id][assetIndex].allocations === 'string' 
+                                              ? errors.assetTypes[currentAssetType.id][assetIndex].allocations 
+                                              : ''}
+                                          </FormHelperText>
                                     )}
-                                  </Box>
                                   
                                   <FieldArray name={`${assetPrefix}.allocations`}>
                                     {({ push: pushAllocation, remove: removeAllocation }) => (
@@ -312,11 +308,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                                   type="number"
                                                   InputProps={{ inputProps: { min: 1, max: 100 } }}
                                                   value={allocation.share || ''}
-                                                  onChange={(e) => {
-                                                    // Ensure value doesn't exceed 100
-                                                    const newValue = Math.min(parseFloat(e.target.value) || 0, 100);
-                                                    setFieldValue(`${allocationPrefix}.share`, newValue);
-                                                  }}
+                                                  onChange={handleChange}
                                                   onBlur={handleBlur}
                                                   error={allocationTouched?.share && Boolean(allocationErrors?.share)}
                                                   helperText={allocationTouched?.share && allocationErrors?.share}
@@ -341,6 +333,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                         
                                         <Button
                                           variant="outlined"
+                                          color="warning"
                                           startIcon={<AddIcon />}
                                           onClick={() => pushAllocation({ nomineeId: '', share: '' })}
                                           sx={{ mt: 2 }}
@@ -349,13 +342,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                           Add Nominee Allocation
                                         </Button>
                                         
-                                        {errors.assetTypes?.[currentAssetType.id]?.[assetIndex]?.allocations && (
-                                          <FormHelperText error sx={{ mt: 1 }}>
-                                            {typeof errors.assetTypes[currentAssetType.id][assetIndex].allocations === 'string' 
-                                              ? errors.assetTypes[currentAssetType.id][assetIndex].allocations 
-                                              : ''}
-                                          </FormHelperText>
-                                        )}
+                        
                                       </Box>
                                     )}
                                   </FieldArray>
@@ -365,8 +352,8 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                           })}
                           
                           <Button
-                            variant="contained"
-                            color="secondary"
+                            variant="outlined"
+                            color="warning"
                             startIcon={<AddIcon />}
                             onClick={() => push({ name: '', description: '', allocations: [] })}
                             sx={{ mt: 2 }}
@@ -384,10 +371,11 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                 <Button 
                   variant="contained" 
                   onClick={() => {handlePrevStep(values);}}
+                  color='warning'
                 >
                   Back
                 </Button>
-                <Button variant="contained" color="primary" type="submit">
+                <Button variant="contained" color="warning" type="submit">
                   Next
                 </Button>
               </Box>
