@@ -141,6 +141,12 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
     
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (formData.nomineeDetails?.nominees?.length === 0) {
+      window.location.reload();
+    }
+  }, [formData.nomineeDetails?.nominees]);
     // Helper function to get placeholder text based on document type
   const getIdentificationPlaceholder = (docType) => {
     switch(docType) {
