@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import {
@@ -87,6 +87,9 @@ const PersonalDetails = ({ formData, nextStep, updateFormData }) => {
     updateFormData('personalDetails', values);
     nextStep();
   };
+
+  const titleSelectRef = useRef(null);
+
   
   // Function to calculate age from date of birth
   const calculateAge = (dateOfBirth) => {
@@ -106,6 +109,19 @@ const PersonalDetails = ({ formData, nextStep, updateFormData }) => {
     }
   };
 
+ // Use effect to focus on the title field when component mounts
+ useEffect(() => {
+  // Small timeout to ensure the component is fully rendered
+  const timer = setTimeout(() => {
+    if (titleSelectRef.current) {
+      // For Material-UI Select, focus on the component
+      titleSelectRef.current.focus();
+    }
+  }, 0);
+  
+  return () => clearTimeout(timer);
+}, []); // Empty dependency array means this runs once on mount
+
   return (
     <Paper elevation={3} sx={{ p: 4, mt: 2 }}>
       <Typography variant="h5" gutterBottom>
@@ -115,7 +131,7 @@ const PersonalDetails = ({ formData, nextStep, updateFormData }) => {
         Step 1 of 7: Fill up Personal Details
       </Typography>            
       <Box sx={{ width: '100%', mb: 4 }}>
-          <Stepper activeStep={0} sx={{ '& .MuiStepIcon-root.Mui-active': { color: 'warning.main' }, '& .MuiStepIcon-root.Mui-completed': { color: 'warning.main' } }}>
+          <Stepper activeStep={0}>
               {Array.from({ length: 4 }, (_, i) => (
                   <Step key={`step-${i}`}>
                       <StepLabel></StepLabel>
@@ -166,6 +182,7 @@ const PersonalDetails = ({ formData, nextStep, updateFormData }) => {
                       onChange={handleChange}
                       onBlur={handleBlur}
                       label="Title*"
+                      inputRef={titleSelectRef}
                     >
                       {titleOptions.map((option) => (
                         <MenuItem key={option} value={option}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Formik, Form, FieldArray } from 'formik';
 import * as Yup from 'yup';
 import {
@@ -31,11 +31,6 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { differenceInYears, isAfter, isFuture, isValid } from 'date-fns';
-
-// Custom validation for PAN format (ABCDE1234F)
-const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-// Custom validation for Aadhar (12 digit number)
-const aadharRegex = /^[0-9]{12}$/;
 
 // Validation schema for a single nominee
 const NomineeSchema = Yup.object().shape({
@@ -105,8 +100,13 @@ const calculateAge = (dateOfBirth) => {
   return differenceInYears(new Date(), new Date(dateOfBirth));
 };
 
+ // Use effect to focus on the title field when component mounts
+ // Empty dependency array means this runs once on mount
 
 const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
+
+  const titleSelectRef = useRef(null);
+  
   // Default empty nominee
   const emptyNominee = {
     title: '',
@@ -129,6 +129,18 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
     updateFormData('nomineeDetails', values);
     nextStep();
   };
+
+  useEffect(() => {
+    // Small timeout to ensure the component is fully rendered
+    const timer = setTimeout(() => {
+      if (titleSelectRef.current) {
+        // For Material-UI Select, focus on the component
+        titleSelectRef.current.focus();
+      }
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, []);
     // Helper function to get placeholder text based on document type
   const getIdentificationPlaceholder = (docType) => {
     switch(docType) {
@@ -180,7 +192,7 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
       updateFormData('nomineeDetails', { nominees: updatedNominees.length ? updatedNominees : [emptyNominee] });
     }
   };
-
+  
   useEffect(() => {
     console.log("formData", JSON.stringify(formData, null, 2));
   }, [formData]);
@@ -270,6 +282,7 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
                           onChange={handleChange}
                           onBlur={handleBlur}
                           label="Title*"
+                          inputRef={titleSelectRef}
                           >
                           {titleOptions.map((option) => (
                             <MenuItem key={option} value={option}>

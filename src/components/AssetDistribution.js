@@ -65,7 +65,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
 
   // Initialize nominees from formData when component mounts
   useEffect(() => {
-    console.log("formData", JSON.stringify(formData, null, 2));
+    // console.log("formData", JSON.stringify(formData, null, 2));
     if (formData.nomineeDetails && formData.nomineeDetails.nominees) {
       setNominees(formData.nomineeDetails.nominees.map((nominee, index) => ({
         id: `nominee-${index}`,
@@ -133,6 +133,16 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
     return nominees.filter(nominee => !allocatedNomineeIds.includes(nominee.id));
   };
 
+  // Get relation for a given nominee ID
+  const getNomineeRelation = (nomineeId) => {
+    const nominee = nominees.find(n => n.id === nomineeId);
+    return nominee ? nominee.relation : '';
+  };
+
+  const handleWheel = (event) => {
+    event.target.blur();
+  };
+
   return (
     <Paper elevation={3} sx={{ p: 4, mt: 2 }}>
       <Typography variant="h5" gutterBottom>
@@ -198,8 +208,7 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                           {currentAssetValues.map((asset, assetIndex) => {
                             const assetPrefix = `assetTypes.${currentAssetType.id}[${assetIndex}]`;
                             const totalAllocation = calculateTotalAllocation(asset.allocations);
-                            const isAllocationComplete = Math.round(totalAllocation) === 100;
-                            
+                            const isAllocationComplete = Math.round(totalAllocation) === 100;                            
                             return (
                               <Card key={assetIndex} variant="outlined" sx={{ mb: 3, position: 'relative' }}>
                                 <CardContent>
@@ -262,6 +271,10 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                           const allocationTouched = 
                                             touched.assetTypes?.[currentAssetType.id]?.[assetIndex]?.allocations?.[allocationIndex];
                                           
+                                          // Find the nominee object for the selected nomineeId
+                                          const selectedNominee = nominees.find(nominee => nominee.id === allocation.nomineeId);
+                                          const relation = selectedNominee ? selectedNominee.relation : '';
+                                            
                                           return (
                                             <Grid container spacing={2} key={allocationIndex} alignItems="center">
                                               <Grid item xs={12} sm={5}>
@@ -276,7 +289,9 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                                     id={`${allocationPrefix}.nomineeId`}
                                                     name={`${allocationPrefix}.nomineeId`}
                                                     value={allocation.nomineeId || ''}
-                                                    onChange={handleChange}
+                                                    onChange={(e) => {
+                                                      handleChange(e);
+                                                    }}
                                                     onBlur={handleBlur}
                                                     label="Nominee"
                                                   >
@@ -299,7 +314,22 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                                 </FormControl>
                                               </Grid>
                                               
-                                              <Grid item xs={12} sm={5}>
+                                              <Grid item xs={12} sm={3}>
+                                                <TextField
+                                                  fullWidth
+                                                  id={`${allocationPrefix}.relation`}
+                                                  name={`${allocationPrefix}.relation`}
+                                                  label="Relation"
+                                                  value={relation}
+                                                  InputProps={{
+                                                    readOnly: true,
+                                                    style: { backgroundColor: '#f5f5f5' }
+                                                  }}
+                                                  margin="normal"
+                                                />
+                                              </Grid>
+                                              
+                                              <Grid item xs={12} sm={3}>
                                                 <TextField
                                                   fullWidth
                                                   id={`${allocationPrefix}.share`}
@@ -313,10 +343,11 @@ const AssetDistribution = ({ formData, nextStep, prevStep, updateFormData }) => 
                                                   error={allocationTouched?.share && Boolean(allocationErrors?.share)}
                                                   helperText={allocationTouched?.share && allocationErrors?.share}
                                                   margin="normal"
+                                                  onWheel={handleWheel}
                                                 />
                                               </Grid>
                                               
-                                              <Grid item xs={12} sm={2}>
+                                              <Grid item xs={12} sm={1}>
                                                 <IconButton
                                                   aria-label="remove allocation"
                                                   onClick={() => removeAllocation(allocationIndex)}
