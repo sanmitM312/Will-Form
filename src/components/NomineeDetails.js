@@ -142,11 +142,7 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (formData.nomineeDetails?.nominees?.length === 0) {
-      window.location.reload();
-    }
-  }, [formData.nomineeDetails?.nominees]);
+
     // Helper function to get placeholder text based on document type
   const getIdentificationPlaceholder = (docType) => {
     switch(docType) {
@@ -160,7 +156,7 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
   };
   function findAndRemoveNomineeWithConfirmation(data, id) {
     if (!data?.assetDistribution?.assetTypes){
-      alert(`No asset types found in data. Nominee "${nomineeName}" was removed.`);
+      alert(`No asset types found in data. Nominee "${id}" was removed.`);
       return true;
     }
     const assetTypes = data.assetDistribution.assetTypes;
@@ -198,7 +194,18 @@ const NomineeDetails = ({ formData, nextStep, prevStep, updateFormData }) => {
       updateFormData('nomineeDetails', { nominees: updatedNominees.length ? updatedNominees : [emptyNominee] });
     }
   };
-  
+  const [nomineeCount, setNomineeCount] = useState(formData.nomineeDetails?.nominees?.length || 0);
+
+  useEffect(() => {
+    setNomineeCount(formData.nomineeDetails?.nominees?.length || 0);
+  }, [formData.nomineeDetails?.nominees]);
+
+  useEffect(() => {
+    if (nomineeCount === 0) {
+      setNomineeCount(1);
+    }
+  }, [nomineeCount]);
+
   useEffect(() => {
     console.log("formData", JSON.stringify(formData, null, 2));
   }, [formData]);
